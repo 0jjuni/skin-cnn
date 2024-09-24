@@ -1,0 +1,28 @@
+# Python 파일들
+*.pyc
+*.pyo
+*.pyd
+*.env
+*.venv
+*.egg-info/
+*.egg
+*.log
+*.pot
+*.mo
+*.so
+
+
+# IntelliJ IDEA / PyCharm specific
+.idea/
+*.iml
+*.iws
+
+# Django migrations
+**/migrations/
+
+# Static and media files
+staticfiles/
+media/
+
+# Local development settings
+.env
