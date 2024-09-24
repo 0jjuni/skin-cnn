@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import CropAndSaveAPIView
+from .views import CropAndPredictAPIView
 
 urlpatterns = [
-    path('', CropAndSaveAPIView.as_view(), name='crop_and_save'),
+    path('', CropAndPredictAPIView.as_view(), name='crop_and_save'),
 ]
