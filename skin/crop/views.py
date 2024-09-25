@@ -1,6 +1,7 @@
 import logging
 import torch
 import torch.nn as nn
+from django.views.decorators.csrf import csrf_exempt
 from torchvision import models
 from torchvision.transforms import ToTensor, Normalize, Resize, Compose
 from PIL import Image
@@ -11,6 +12,8 @@ from rest_framework.response import Response
 from rest_framework import status
 import cv2
 import mediapipe as mp
+
+from accounts.models import PredictionResult
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -46,12 +49,20 @@ moisture_model.fc = nn.Sequential(
 moisture_model.load_state_dict(torch.load('./weights/수분_83.pth', map_location=torch.device('cpu')))
 moisture_model.eval()
 
+# # 네 번째 모델: 스킨 타입 분류 모델
+# logging.info('스킨 타입 분류 모델 초기화 시작')
+# skin_model = models.resnet50(weights=None)
+# num_ftrs = skin_model.fc.in_features
+# skin_model.fc = nn.Linear(num_ftrs, 3)  # 스킨 타입 클래스 수를 3으로 설정
+# skin_model.load_state_dict(torch.load('./weights/스킨분류.pth', map_location=torch.device('cpu')))
+# skin_model.eval()
+
 # GPU 설정
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 age_model.to(device)
 pigmentation_model.to(device)
 moisture_model.to(device)
-
+# skin_model.to(device)
 # 이미지 전처리 정의
 transform = Compose([
     Resize((224, 224)),
@@ -62,6 +73,7 @@ transform = Compose([
 # MediaPipe Face Mesh 초기화
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, min_detection_confidence=0.5)
+
 
 def extract_face_parts(image):
     """얼굴 부위 추출 (이마, 왼쪽 볼, 오른쪽 볼)"""
@@ -134,7 +146,23 @@ def predict_moisture(image):
 
     return predicted.item(), probabilities.squeeze().cpu().numpy()
 
+# def predict_skin_type(image):
+#     """스킨 타입 예측"""
+#     image = Image.fromarray(image).convert('RGB')
+#     image = transform(image).unsqueeze(0).to(device)
+#
+#     with torch.no_grad():
+#         outputs = skin_model(image)
+#         probabilities = F.softmax(outputs, dim=1)
+#         _, predicted = torch.max(outputs, 1)
+#
+#     return predicted.item(), probabilities.squeeze().cpu().numpy()
 
+
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+#@method_decorator(csrf_exempt, name='dispatch')
 class CropAndPredictAPIView(APIView):
     def post(self, request, *args, **kwargs):
         logging.info('API 요청 수신')
@@ -163,37 +191,59 @@ class CropAndPredictAPIView(APIView):
             predicted_moisture_class_left_cheek, moisture_probabilities_left_cheek = predict_moisture(left_cheek)
             predicted_moisture_class_right_cheek, moisture_probabilities_right_cheek = predict_moisture(right_cheek)
 
-            # 예측 결과 반환
-            return Response({
+            # #스킨 타입 예측 (이마만 대상으로)
+            # predicted_skin_class, skin_probabilities = predict_skin_type(forehead)
+
+            # 예측 결과 JSON 반환
+            response_data = {
                 # 나이 예측 결과
                 '이마 나이 예측': predicted_age_class_forehead,
-                '이마 나이 확률': f"{age_probabilities_forehead[predicted_age_class_forehead] * 100:.2f}%",  # 예측된 나이 클래스의 확률
+                '이마 나이 확률': f"{age_probabilities_forehead[predicted_age_class_forehead] * 100:.2f}%",
 
                 '왼쪽 볼 나이 예측': predicted_age_class_left_cheek,
                 '왼쪽 볼 나이 확률': f"{age_probabilities_left_cheek[predicted_age_class_left_cheek] * 100:.2f}%",
-                # 예측된 나이 클래스의 확률
 
                 '오른쪽 볼 나이 예측': predicted_age_class_right_cheek,
                 '오른쪽 볼 나이 확률': f"{age_probabilities_right_cheek[predicted_age_class_right_cheek] * 100:.2f}%",
-                # 예측된 나이 클래스의 확률
 
                 # 색소 침착 예측 결과 (이마만)
                 '이마 색소 예측': predicted_pigmentation_class,
-                '이마 색소 확률': f"{pigmentation_probabilities[predicted_pigmentation_class] * 100:.2f}%",  # 예측된 색소 클래스의 확률
+                '이마 색소 확률': f"{pigmentation_probabilities[predicted_pigmentation_class] * 100:.2f}%",
 
                 # 수분 예측 결과
                 '이마 수분 예측': predicted_moisture_class_forehead,
                 '이마 수분 확률': f"{moisture_probabilities_forehead[predicted_moisture_class_forehead] * 100:.2f}%",
-                # 예측된 수분 클래스의 확률
 
                 '왼쪽 볼 수분 예측': predicted_moisture_class_left_cheek,
                 '왼쪽 볼 수분 확률': f"{moisture_probabilities_left_cheek[predicted_moisture_class_left_cheek] * 100:.2f}%",
-                # 예측된 수분 클래스의 확률
 
                 '오른쪽 볼 수분 예측': predicted_moisture_class_right_cheek,
                 '오른쪽 볼 수분 확률': f"{moisture_probabilities_right_cheek[predicted_moisture_class_right_cheek] * 100:.2f}%",
-                # 예측된 수분 클래스의 확률
-            }, status=status.HTTP_200_OK)
+            }
+
+            # 로그인 상태인 경우 DB에 결과 저장
+            if request.user.is_authenticated:
+                logging.info(f"{request.user.username}의 예측 결과 저장")
+                PredictionResult.objects.create(
+                    user=request.user,
+                    forehead_age_prediction=predicted_age_class_forehead,
+                    forehead_age_probability=age_probabilities_forehead[predicted_age_class_forehead],
+                    left_cheek_age_prediction=predicted_age_class_left_cheek,
+                    left_cheek_age_probability=age_probabilities_left_cheek[predicted_age_class_left_cheek],
+                    right_cheek_age_prediction=predicted_age_class_right_cheek,
+                    right_cheek_age_probability=age_probabilities_right_cheek[predicted_age_class_right_cheek],
+                    forehead_pigmentation_prediction=predicted_pigmentation_class,
+                    forehead_pigmentation_probability=pigmentation_probabilities[predicted_pigmentation_class],
+                    forehead_moisture_prediction=predicted_moisture_class_forehead,
+                    forehead_moisture_probability=moisture_probabilities_forehead[predicted_moisture_class_forehead],
+                    left_cheek_moisture_prediction=predicted_moisture_class_left_cheek,
+                    left_cheek_moisture_probability=moisture_probabilities_left_cheek[
+                        predicted_moisture_class_left_cheek],
+                    right_cheek_moisture_prediction=predicted_moisture_class_right_cheek,
+                    right_cheek_moisture_probability=moisture_probabilities_right_cheek[
+                        predicted_moisture_class_right_cheek]
+                )
+
+            return Response(response_data, status=status.HTTP_200_OK)
 
         return Response({'error': 'Face not detected'}, status=status.HTTP_400_BAD_REQUEST)
-

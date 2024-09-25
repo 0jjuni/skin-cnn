@@ -25,3 +25,7 @@ class PredictionSerializer(serializers.Serializer):
     right_cheek_moisture_prediction = serializers.IntegerField()
     right_cheek_moisture_probabilities = serializers.ListField(child=serializers.FloatField())
 
+    # # 스킨 타입 예측 결과
+    # forehead_skin_type_prediction = serializers.IntegerField()
+    # forehead_skin_type_probabilities = serializers.ListField(child=serializers.FloatField())
+
