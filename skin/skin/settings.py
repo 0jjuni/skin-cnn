@@ -32,16 +32,25 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['10.100.1.57', 'localhost', '127.0.0.1']
 
+from datetime import timedelta
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.BasicAuthentication',  # 다른 인증 방식
-        # TokenAuthentication을 사용하는 경우:
-        # 'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
     ),
 }
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # 토큰 유효 시간 설정 (예: 60분)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),     # 리프레시 토큰 유효 시간 설정 (예: 7일)
+    'ROTATE_REFRESH_TOKENS': False,  # 새 액세스 토큰을 받을 때마다 리프레시 토큰을 갱신할지 여부
+    'BLACKLIST_AFTER_ROTATION': True,  # 리프레시 토큰을 갱신한 후 이전 토큰을 블랙리스트에 올릴지 여부
+}
+
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -62,7 +71,6 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    #"django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -94,16 +102,27 @@ WSGI_APPLICATION = "skin.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",  # PostgreSQL 엔진 사용
+#         "NAME": "postgres",  # 사용할 데이터베이스 이름
+#         "USER": "postgres",  # 데이터베이스 사용자 이름
+#         "PASSWORD": "dlwjdtjq66",  # 데이터베이스 사용자 비밀번호
+#         "HOST": "10.100.0.54",  # 데이터베이스 서버의 IP 주소
+#         "PORT": "5432",  # PostgreSQL 기본 포트
+#     }
+# }
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",  # PostgreSQL 엔진 사용
-        "NAME": "postgres",  # 사용할 데이터베이스 이름
-        "USER": "postgres",  # 데이터베이스 사용자 이름
-        "PASSWORD": "dlwjdtjq66",  # 데이터베이스 사용자 비밀번호
-        "HOST": "10.100.0.54",  # 데이터베이스 서버의 IP 주소
-        "PORT": "5432",  # PostgreSQL 기본 포트
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',  # MariaDB는 MySQL과 호환됩니다.
+        'NAME': 'skin',  # 실제 데이터베이스 이름을 입력하세요.
+        'USER': 'root',
+        'PASSWORD': '0000',  # 입력하신 비밀번호
+        'HOST': '127.0.0.1',
+        'PORT': '3219',  # 이미지에서 확인한 포트 번호
     }
 }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

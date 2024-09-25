@@ -1,13 +1,22 @@
 # accounts/views.py
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
 import json
-#@csrf_exempt
+
+# JWT 토큰 발급 함수
+def get_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+    }
+
+# @csrf_exempt
 def login_api(request):
     if request.method == 'POST':
         try:
-            # 요청으로부터 데이터를 파싱
             data = json.loads(request.body)
             username = data.get('username')
             password = data.get('password')
@@ -16,9 +25,9 @@ def login_api(request):
             user = authenticate(request, username=username, password=password)
 
             if user is not None:
-                # 인증 성공 시 로그인 처리
-                login(request, user)
-                return JsonResponse({'message': 'Login successful', 'status': 'success'}, status=200)
+                # 인증 성공 시 JWT 토큰 반환
+                tokens = get_tokens_for_user(user)
+                return JsonResponse({'message': 'Login successful', 'tokens': tokens, 'status': 'success'}, status=200)
             else:
                 # 인증 실패
                 return JsonResponse({'message': 'Invalid credentials', 'status': 'error'}, status=400)
@@ -26,6 +35,7 @@ def login_api(request):
             return JsonResponse({'message': f'Error: {str(e)}', 'status': 'error'}, status=500)
 
     return JsonResponse({'message': 'Invalid request method', 'status': 'error'}, status=405)
+
 
 
 # accounts/views.py

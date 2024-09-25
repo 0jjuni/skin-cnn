@@ -1,8 +1,17 @@
 # accounts/urls.py
 from django.urls import path
-from .views import login_api, register_api
+from .views import register_api
+# urls.py
+from django.urls import path
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 
 urlpatterns = [
-    path('login/', login_api, name='login_api'),  # 로그인 API 엔드포인트
+    # JWT 관련 엔드포인트
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
     path('register/', register_api, name='register_api'),
 ]
