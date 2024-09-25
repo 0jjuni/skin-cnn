@@ -36,10 +36,21 @@ pigmentation_model.classifier = nn.Sequential(
 pigmentation_model.load_state_dict(torch.load('./weights/색소_78.pth', map_location=torch.device('cpu')))
 pigmentation_model.eval()
 
+# 세 번째 모델: 수분 예측 모델
+logging.info('수분 예측 모델 초기화 시작')
+moisture_model = models.resnext50_32x4d(weights=None)
+moisture_model.fc = nn.Sequential(
+    nn.Dropout(0.3),
+    nn.Linear(moisture_model.fc.in_features, 2)  # 클래스 수 2개로 설정
+)
+moisture_model.load_state_dict(torch.load('./weights/수분_83.pth', map_location=torch.device('cpu')))
+moisture_model.eval()
+
 # GPU 설정
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 age_model.to(device)
 pigmentation_model.to(device)
+moisture_model.to(device)
 
 # 이미지 전처리 정의
 transform = Compose([
@@ -111,6 +122,18 @@ def predict_pigmentation(image):
 
     return predicted.item(), probabilities.squeeze().cpu().numpy()
 
+def predict_moisture(image):
+    """수분 예측"""
+    image = Image.fromarray(image).convert('RGB')
+    image = transform(image).unsqueeze(0).to(device)
+
+    with torch.no_grad():
+        outputs = moisture_model(image)
+        probabilities = F.softmax(outputs, dim=1)
+        _, predicted = torch.max(outputs, 1)
+
+    return predicted.item(), probabilities.squeeze().cpu().numpy()
+
 
 class CropAndPredictAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -135,19 +158,42 @@ class CropAndPredictAPIView(APIView):
             # 색소 침착 예측 (이마만 대상으로)
             predicted_pigmentation_class, pigmentation_probabilities = predict_pigmentation(forehead)
 
+            # 수분 예측 (이마, 왼쪽 볼, 오른쪽 볼 대상)
+            predicted_moisture_class_forehead, moisture_probabilities_forehead = predict_moisture(forehead)
+            predicted_moisture_class_left_cheek, moisture_probabilities_left_cheek = predict_moisture(left_cheek)
+            predicted_moisture_class_right_cheek, moisture_probabilities_right_cheek = predict_moisture(right_cheek)
+
             # 예측 결과 반환
             return Response({
-                '이마 나이': predicted_age_class_forehead,
-                '이마 나이 확률': age_probabilities_forehead.tolist(),
+                # 나이 예측 결과
+                '이마 나이 예측': predicted_age_class_forehead,
+                '이마 나이 확률': f"{age_probabilities_forehead[predicted_age_class_forehead] * 100:.2f}%",  # 예측된 나이 클래스의 확률
 
-                '왼쪽 볼 나이': predicted_age_class_left_cheek,
-                '오른쪽 볼 나이 확률': age_probabilities_left_cheek.tolist(),
+                '왼쪽 볼 나이 예측': predicted_age_class_left_cheek,
+                '왼쪽 볼 나이 확률': f"{age_probabilities_left_cheek[predicted_age_class_left_cheek] * 100:.2f}%",
+                # 예측된 나이 클래스의 확률
 
-                '오른쪽 볼 나이': predicted_age_class_right_cheek,
-                '오른쪽 볼 나이 확률': age_probabilities_right_cheek.tolist(),
+                '오른쪽 볼 나이 예측': predicted_age_class_right_cheek,
+                '오른쪽 볼 나이 확률': f"{age_probabilities_right_cheek[predicted_age_class_right_cheek] * 100:.2f}%",
+                # 예측된 나이 클래스의 확률
 
-                '색소침착 예측': predicted_pigmentation_class,
-                '색소침착 확률': pigmentation_probabilities.tolist(),
+                # 색소 침착 예측 결과 (이마만)
+                '이마 색소 예측': predicted_pigmentation_class,
+                '이마 색소 확률': f"{pigmentation_probabilities[predicted_pigmentation_class] * 100:.2f}%",  # 예측된 색소 클래스의 확률
+
+                # 수분 예측 결과
+                '이마 수분 예측': predicted_moisture_class_forehead,
+                '이마 수분 확률': f"{moisture_probabilities_forehead[predicted_moisture_class_forehead] * 100:.2f}%",
+                # 예측된 수분 클래스의 확률
+
+                '왼쪽 볼 수분 예측': predicted_moisture_class_left_cheek,
+                '왼쪽 볼 수분 확률': f"{moisture_probabilities_left_cheek[predicted_moisture_class_left_cheek] * 100:.2f}%",
+                # 예측된 수분 클래스의 확률
+
+                '오른쪽 볼 수분 예측': predicted_moisture_class_right_cheek,
+                '오른쪽 볼 수분 확률': f"{moisture_probabilities_right_cheek[predicted_moisture_class_right_cheek] * 100:.2f}%",
+                # 예측된 수분 클래스의 확률
             }, status=status.HTTP_200_OK)
 
         return Response({'error': 'Face not detected'}, status=status.HTTP_400_BAD_REQUEST)
+
