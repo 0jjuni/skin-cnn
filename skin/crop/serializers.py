@@ -34,3 +34,13 @@ class PredictionSerializer(serializers.Serializer):
 
     right_cheek_skin_prediction = serializers.IntegerField()
     right_cheek_skin_probabilities = serializers.ListField(child=serializers.FloatField())
+
+    # 모공 개수 예측 결과
+    forehead_pores_prediction = serializers.IntegerField()
+    forehead_pores_probabilities = serializers.ListField(child=serializers.FloatField())
+
+    left_cheek_pores_prediction = serializers.IntegerField()
+    left_cheek_pores_probabilities = serializers.ListField(child=serializers.FloatField())
+
+    right_cheek_pores_prediction = serializers.IntegerField()
+    right_cheek_pores_probabilities = serializers.ListField(child=serializers.FloatField())

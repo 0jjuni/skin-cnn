@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'crop',
     'accounts',
+    'gemma'
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -102,26 +103,26 @@ WSGI_APPLICATION = "skin.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.postgresql",  # PostgreSQL 엔진 사용
-#         "NAME": "postgres",  # 사용할 데이터베이스 이름
-#         "USER": "postgres",  # 데이터베이스 사용자 이름
-#         "PASSWORD": "dlwjdtjq66",  # 데이터베이스 사용자 비밀번호
-#         "HOST": "10.100.0.54",  # 데이터베이스 서버의 IP 주소
-#         "PORT": "5432",  # PostgreSQL 기본 포트
-#     }
-# }
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',  # MariaDB는 MySQL과 호환됩니다.
-        'NAME': 'skin',  # 실제 데이터베이스 이름을 입력하세요.
-        'USER': 'root',
-        'PASSWORD': '0000',  # 입력하신 비밀번호
-        'HOST': '127.0.0.1',
-        'PORT': '3219',  # 이미지에서 확인한 포트 번호
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",  # PostgreSQL 엔진 사용
+        "NAME": "postgres",  # 사용할 데이터베이스 이름
+        "USER": "postgres",  # 데이터베이스 사용자 이름
+        "PASSWORD": "dlwjdtjq66",  # 데이터베이스 사용자 비밀번호
+        "HOST": "10.100.0.54",  # 데이터베이스 서버의 IP 주소
+        "PORT": "5432",  # PostgreSQL 기본 포트
     }
 }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',  # MariaDB는 MySQL과 호환됩니다.
+#         'NAME': 'skin',  # 실제 데이터베이스 이름을 입력하세요.
+#         'USER': 'root',
+#         'PASSWORD': '0000',  # 입력하신 비밀번호
+#         'HOST': '127.0.0.1',
+#         'PORT': '3219',  # 이미지에서 확인한 포트 번호
+#     }
+# }
 
 
 # Password validation

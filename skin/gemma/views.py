@@ -34,6 +34,11 @@ SKIN_TYPE_PREDICTION_MAPPING = {
     2: "지성"
 }
 
+PORES_PREDICTION_MAPPING = {
+    0: "모공이 육안으로 보이지 않음",
+    1: "모공이 육안으로 보임"
+}
+
 class GemmaAPIView(APIView):
     # 로그인된 사용자만 접근할 수 있도록 설정
     permission_classes = [IsAuthenticated]
@@ -57,7 +62,10 @@ class GemmaAPIView(APIView):
                 'right_cheek_moisture_prediction': MOISTURE_PREDICTION_MAPPING.get(prediction_result.right_cheek_moisture_prediction, '알 수 없음'),
                 'forehead_skin_prediction': SKIN_TYPE_PREDICTION_MAPPING.get(prediction_result.forehead_skin_prediction, '알 수 없음'),
                 'left_cheek_skin_prediction': SKIN_TYPE_PREDICTION_MAPPING.get(prediction_result.left_cheek_skin_prediction, '알 수 없음'),
-                'right_cheek_skin_prediction': SKIN_TYPE_PREDICTION_MAPPING.get(prediction_result.right_cheek_skin_prediction, '알 수 없음')
+                'right_cheek_skin_prediction': SKIN_TYPE_PREDICTION_MAPPING.get(prediction_result.right_cheek_skin_prediction, '알 수 없음'),
+                'forehead_pores_prediction': PORES_PREDICTION_MAPPING.get(prediction_result.forehead_pores_prediction,'알 수 없음'),
+                'left_cheek_pores_prediction': PORES_PREDICTION_MAPPING.get(prediction_result.left_cheek_pores_prediction, '알 수 없음'),
+                'right_cheek_pores_prediction': PORES_PREDICTION_MAPPING.get(prediction_result.right_cheek_pores_prediction, '알 수 없음')
             }
 
             # JSON 응답으로 반환
@@ -78,9 +86,6 @@ class GemmaAPIView(APIView):
             prediction_result = PredictionResult.objects.filter(user=user).latest('created_at')
 
             formatted_data = (
-                f"이마 나이 예측: {AGE_PREDICTION_MAPPING.get(prediction_result.forehead_age_prediction, '알 수 없음')}, "
-                f"왼쪽 볼 나이 예측: {AGE_PREDICTION_MAPPING.get(prediction_result.left_cheek_age_prediction, '알 수 없음')}, "
-                f"오른쪽 볼 나이 예측: {AGE_PREDICTION_MAPPING.get(prediction_result.right_cheek_age_prediction, '알 수 없음')}. "
                 f"이마 색소 침착 예측: {PIGMENTATION_PREDICTION_MAPPING.get(prediction_result.forehead_pigmentation_prediction, '알 수 없음')}. "
                 f"수분 상태: 이마 {MOISTURE_PREDICTION_MAPPING.get(prediction_result.forehead_moisture_prediction, '알 수 없음')}, "
                 f"왼쪽 볼 {MOISTURE_PREDICTION_MAPPING.get(prediction_result.left_cheek_moisture_prediction, '알 수 없음')}, "
@@ -88,6 +93,9 @@ class GemmaAPIView(APIView):
                 f"스킨 타입 예측: 이마 {SKIN_TYPE_PREDICTION_MAPPING.get(prediction_result.forehead_skin_prediction, '알 수 없음')}, "
                 f"왼쪽 볼 {SKIN_TYPE_PREDICTION_MAPPING.get(prediction_result.left_cheek_skin_prediction, '알 수 없음')}, "
                 f"오른쪽 볼 {SKIN_TYPE_PREDICTION_MAPPING.get(prediction_result.right_cheek_skin_prediction, '알 수 없음')}. "
+                f"이마 모공 예측: {PORES_PREDICTION_MAPPING.get(prediction_result.forehead_pores_prediction, '알 수 없음')}, "
+                f"왼쪽 볼 모공 예측: {PORES_PREDICTION_MAPPING.get(prediction_result.left_cheek_pores_prediction, '알 수 없음')}, "
+                f"오른쪽 볼 모공 예측: {PORES_PREDICTION_MAPPING.get(prediction_result.right_cheek_pores_prediction, '알 수 없음')}. "
                 "피부 관리를 어떻게 하면 좋을까요?"
             )
 
@@ -109,3 +117,47 @@ class GemmaAPIView(APIView):
             logging.error(traceback.format_exc())  # 전체 스택 트레이스 로그
             return Response({'error': f'알 수 없는 오류가 발생했습니다: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Cosmetics
+from .serializers import CosmeticsSerializer  # CosmeticsSerializer import
+
+class CosmeticsFilterAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        # 각 필드에 대한 쿼리 파라미터 가져오기
+        cosmetics_type = request.query_params.get('cosmetics_type', None)
+        age_type = request.query_params.get('age_type', None)
+        skin_type = request.query_params.get('skin_type', None)
+        moisture_type = request.query_params.get('moisture_type', None)
+        pigmentation_type = request.query_params.get('pigmentation_type', None)
+        pores_type = request.query_params.get('pores_type', None)
+
+        # 필터링 조건 설정
+        filters = {}
+        if cosmetics_type:
+            filters['cosmetics_type'] = cosmetics_type
+        if age_type:
+            filters['age_type'] = age_type
+        if skin_type:
+            filters['skin_type'] = skin_type
+        if moisture_type:
+            filters['moisture_type'] = moisture_type
+        if pigmentation_type:
+            filters['pigmentation_type'] = pigmentation_type
+        if pores_type:
+            filters['pores_type'] = pores_type
+
+        # 필터링된 쿼리셋
+        cosmetics_items = Cosmetics.objects.filter(**filters)
+
+        # 결과가 없을 경우
+        if not cosmetics_items.exists():
+            return Response({'message': 'No matching items found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # 시리얼라이저를 사용하여 결과 직렬화
+        serializer = CosmeticsSerializer(cosmetics_items, many=True)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)

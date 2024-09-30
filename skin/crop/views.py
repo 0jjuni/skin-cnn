@@ -64,6 +64,19 @@ model_dict.update(pretrained_dict)
 skin_model.load_state_dict(model_dict)
 skin_model.eval()
 
+# 다섯번째 모델
+logging.info('모공 개수 분류 모델 초기화 시작')
+pores_model = models.resnext50_32x4d(weights=None)
+num_ftrs = pores_model.fc.in_features
+# 마지막 레이어 수정 (이진 분류 작업을 위해 1개 출력 노드)
+pores_model.fc = nn.Sequential(
+    nn.Dropout(0.5),  # 드롭아웃 추가
+    nn.Linear(num_ftrs, 1)  # 이진 분류를 위한 출력 크기 1로 설정
+)
+# 가중치 로드
+pores_model.load_state_dict(torch.load('./weights/모공개수분류_91.pth', map_location=torch.device('cpu')))
+pores_model.eval()
+
 
 # GPU 설정
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -71,6 +84,7 @@ age_model.to(device)
 pigmentation_model.to(device)
 moisture_model.to(device)
 skin_model.to(device)
+pores_model.to(device)
 
 # 이미지 전처리 정의
 transform = Compose([
@@ -167,6 +181,17 @@ def predict_skin_type(image):
 
     return predicted.item(), probabilities.squeeze().cpu().numpy()
 
+def predict_pores(image):
+    """모공 개수 분류 예측"""
+    image = Image.fromarray(image).convert('RGB')
+    image = transform(image).unsqueeze(0).to(device)
+
+    with torch.no_grad():
+        outputs = pores_model(image)
+        probability = torch.sigmoid(outputs).item()  # 확률값 계산 (0~1 사이)
+
+    # 0과 1에 대한 확률
+    return round(probability), [1 - probability, probability]
 
 class CropAndPredictAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -200,6 +225,11 @@ class CropAndPredictAPIView(APIView):
             predicted_skin_class_forehead, skin_probabilities_forehead = predict_skin_type(forehead)
             predicted_skin_class_left_cheek, skin_probabilities_left_cheek = predict_skin_type(left_cheek)
             predicted_skin_class_right_cheek, skin_probabilities_right_cheek = predict_skin_type(right_cheek)
+
+            # 모공 개수 예측
+            predicted_pores_class_forehead, pores_probabilities_forehead = predict_pores(forehead)
+            predicted_pores_class_left_cheek, pores_probabilities_left_cheek = predict_pores(left_cheek)
+            predicted_pores_class_right_cheek, pores_probabilities_right_cheek = predict_pores(right_cheek)
 
             # 예측 결과 JSON 반환
             response_data = {
@@ -235,7 +265,18 @@ class CropAndPredictAPIView(APIView):
                 '왼쪽 볼 스킨 타입 확률': f"{skin_probabilities_left_cheek[predicted_skin_class_left_cheek] * 100:.2f}%",
 
                 '오른쪽 볼 스킨 타입 예측': predicted_skin_class_right_cheek,
-                '오른쪽 볼 스킨 타입 확률': f"{skin_probabilities_right_cheek[predicted_skin_class_right_cheek] * 100:.2f}%"
+                '오른쪽 볼 스킨 타입 확률': f"{skin_probabilities_right_cheek[predicted_skin_class_right_cheek] * 100:.2f}%",
+
+                # 모공 개수 예측 결과
+                '이마 모공 개수 예측': predicted_pores_class_forehead,
+                '이마 모공 개수 확률': f"{pores_probabilities_forehead[predicted_pores_class_forehead] * 100:.2f}%",
+
+                '왼쪽 볼 모공 개수 예측': predicted_pores_class_left_cheek,
+                '왼쪽 볼 모공 개수 확률': f"{pores_probabilities_left_cheek[predicted_pores_class_left_cheek] * 100:.2f}%",
+
+                '오른쪽 볼 모공 개수 예측': predicted_pores_class_right_cheek,
+                '오른쪽 볼 모공 개수 확률': f"{pores_probabilities_right_cheek[predicted_pores_class_right_cheek] * 100:.2f}%"
+
             }
 
             # 로그인 상태인 경우 DB에 결과 저장 - 스킨 타입 관련 필드 추가
@@ -275,7 +316,17 @@ class CropAndPredictAPIView(APIView):
                             predicted_moisture_class_left_cheek],
                         'right_cheek_moisture_prediction': predicted_moisture_class_right_cheek,
                         'right_cheek_moisture_probability': moisture_probabilities_right_cheek[
-                            predicted_moisture_class_right_cheek]
+                            predicted_moisture_class_right_cheek],
+
+                        # 모공 예측 추가
+                        'forehead_pores_prediction': predicted_pores_class_forehead,
+                        'forehead_pores_probability': pores_probabilities_forehead[predicted_pores_class_forehead],
+                        'left_cheek_pores_prediction': predicted_pores_class_left_cheek,
+                        'left_cheek_pores_probability': pores_probabilities_left_cheek[
+                            predicted_pores_class_left_cheek],
+                        'right_cheek_pores_prediction': predicted_pores_class_right_cheek,
+                        'right_cheek_pores_probability': pores_probabilities_right_cheek[
+                            predicted_pores_class_right_cheek]
                     }
                 )
 

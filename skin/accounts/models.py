@@ -33,5 +33,13 @@ class PredictionResult(models.Model):
     right_cheek_skin_prediction = models.IntegerField(null=True, blank=True)
     right_cheek_skin_probability = models.FloatField(null=True, blank=True)
 
+    # 모공 개수 예측 결과
+    forehead_pores_prediction = models.IntegerField(null=True, blank=True)
+    forehead_pores_probability = models.FloatField(null=True, blank=True)
+    left_cheek_pores_prediction = models.IntegerField(null=True, blank=True)
+    left_cheek_pores_probability = models.FloatField(null=True, blank=True)
+    right_cheek_pores_prediction = models.IntegerField(null=True, blank=True)
+    right_cheek_pores_probability = models.FloatField(null=True, blank=True)
+
     # 생성 시각
     created_at = models.DateTimeField(auto_now_add=True)
